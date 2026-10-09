@@ -290,6 +290,17 @@ pkill -f "python3 -m http.server" 2>/dev/null || true
 sleep 2
 echo -e "${GREEN}  [OK] Cleanup complete${NC}"
 
+# Step 0.5: Suricata must not drop traffic that the SOAR engine never blocks
+echo ""
+echo -e "${YELLOW}[0.5/8] Generating pass rule for protected addresses...${NC}"
+PROTECTED=$("$PYTHON_CMD" -c 'from vajra.soar.engine import FirewallManager; print("PROTECTED=" + ",".join(str(n) for n in FirewallManager(dry_run=True).allowlist))' 2>/dev/null | sed -n 's/^PROTECTED=//p')
+if [ -z "$PROTECTED" ]; then
+    echo -e "${RED}  [FAIL] Could not build the protected address list${NC}"
+    exit 1
+fi
+echo "pass ip [$PROTECTED] any -> any any (msg:\"VAJRA PASS connection started by a protected address\"; flow:to_server; sid:2000100; rev:1;)" > "$ROOT_DIR/config/suricata/protected.rules"
+echo -e "${GREEN}  [OK] Protected: $PROTECTED${NC}"
+
 # Step 1: Setup NFQUEUE iptables rules
 echo ""
 echo -e "${YELLOW}[1/8] Setting up NFQUEUE iptables rules...${NC}"
@@ -411,6 +422,7 @@ pcap:
 default-rule-path: $ROOT_DIR
 rule-files:
   - $RULES_DIR/local.rules
+  - $ROOT_DIR/config/suricata/protected.rules
 
 classification-file: $ROOT_DIR/config/suricata/classification.config
 reference-config-file: $ROOT_DIR/config/suricata/reference.config
