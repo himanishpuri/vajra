@@ -380,10 +380,6 @@ outputs:
       enabled: yes
       filename: fast.log
 
-  - drop:
-      enabled: yes
-      filename: drop.log
-
   - stats:
       enabled: yes
       filename: stats.log
