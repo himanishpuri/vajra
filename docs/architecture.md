@@ -54,8 +54,8 @@ when any of these holds:
 - user behaviour analytics raises a high or critical alert for the user
 
 Before anything is applied, the source is checked against the allowlist.
-Loopback, the host's own address, its default gateway, the nameservers in
-`/etc/resolv.conf`, every `--allow` network and every entry in
+Loopback, every address on the host, its IPv4 and IPv6 default gateways, the
+nameservers in `/etc/resolv.conf`, every `--allow` network and every entry in
 `VAJRA_ALLOWLIST` are never blocked.
 
 A block is then applied with nftables if the `nft` binary exists, otherwise

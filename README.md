@@ -9,9 +9,9 @@ with iptables or nftables. Each decision is logged, every block gets a
 report, and all events are available as one live stream.
 
 The rule the whole thing is built around: **Vajra never cuts the host off from
-its own network.** Loopback, the host's own address, its gateway and its DNS
-resolvers are never blocked. [Safety](#safety) lists exactly how that is
-enforced.
+its own network.** Loopback, every address on the host, its IPv4 and IPv6
+default gateways and its DNS resolvers are never blocked. [Safety](#safety)
+lists exactly how that is enforced.
 
 [Discord](https://discord.gg/gZTJfUujX) ·
 [Contributing](CONTRIBUTING.md) ·
@@ -49,7 +49,7 @@ confidence. [docs/architecture.md](docs/architecture.md) has the details.
 
 | Situation | What Vajra does |
 | --- | --- |
-| Alert source is loopback, the host itself, its gateway or a DNS resolver | Never blocks it |
+| Alert source is loopback, any address on the host, its IPv4 or IPv6 default gateways or a DNS resolver | Never blocks it |
 | Alert source is in `--allow` or `VAJRA_ALLOWLIST` | Never blocks it |
 | Started with `--dry-run` | Logs each decision as `not_enforced` and leaves the firewall alone |
 | No firewall backend, for example on macOS | Logs the decision as `not_enforced` rather than reporting a block |

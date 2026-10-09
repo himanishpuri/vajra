@@ -152,13 +152,13 @@ table inet vajra {
         logger.info(f"Restored {len(self.blocked_ips)} nftables blocks")
 
     def _build_allowlist(self, extra: List[str]) -> list:
-        """Networks that must never be blocked: loopback, this host, its gateway and DNS resolvers"""
+        """Networks that must never be blocked: loopback, this host, its gateways and DNS resolvers"""
         entries = ["127.0.0.0/8", "::1/128"] + list(extra)
         env = os.environ.get("VAJRA_ALLOWLIST", "")
         entries += [e.strip() for e in env.split(",") if e.strip()]
         try:
-            from vajra.common.network import get_local_ip, get_gateway_ip
-            entries += [get_local_ip(), get_gateway_ip()]
+            from vajra.common.network import get_local_ip, get_gateway_ip, get_local_addresses, get_default_gateways
+            entries += [get_local_ip(), get_gateway_ip()] + get_local_addresses() + get_default_gateways()
         except Exception as e:
             logger.warning(f"Could not detect local addresses for the allowlist: {e}")
         try:

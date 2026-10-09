@@ -20,7 +20,8 @@ import socket
 import re
 import os
 import sys
-from typing import Optional, Tuple, Dict
+import json
+from typing import Optional, Tuple, Dict, List
 
 def run_command(cmd: str) -> str:
     """Run a shell command and return output"""
@@ -154,6 +155,37 @@ def get_gateway_ip(interface: str = None) -> str:
         return '.'.join(parts)
     
     return '192.168.1.1'
+
+
+def get_local_addresses() -> List[str]:
+    """Get every IPv4 and IPv6 address on the host"""
+    try:
+        interfaces = json.loads(run_command("ip -j addr show 2>/dev/null"))
+        return [
+            address["local"]
+            for interface in interfaces
+            for address in interface.get("addr_info", [])
+            if address.get("local")
+        ]
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return []
+
+
+def get_default_gateways() -> List[str]:
+    """Get every IPv4 and IPv6 default gateway, including multipath routes"""
+    gateways = []
+    for family in ("-4", "-6"):
+        try:
+            routes = json.loads(run_command(f"ip -j {family} route show default 2>/dev/null"))
+            gateways += [
+                nexthop["gateway"]
+                for route in routes
+                for nexthop in [route] + route.get("nexthops", [])
+                if nexthop.get("gateway")
+            ]
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            continue
+    return gateways
 
 
 def get_network_cidr(interface: str = None) -> str:
