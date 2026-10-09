@@ -450,6 +450,9 @@ stream:
   memcap: 128mb
   checksum-validation: no
   inline: auto
+  # Pick up flows that were open before Suricata started, such as the SSH session running this script
+  midstream: true
+  midstream-policy: ignore
   reassembly:
     memcap: 256mb
     depth: 1mb
