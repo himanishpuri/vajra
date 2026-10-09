@@ -70,6 +70,11 @@ iptables -D INPUT -j NFQUEUE --queue-num 0 2>/dev/null || true
 iptables -D OUTPUT -j NFQUEUE --queue-num 0 2>/dev/null || true
 iptables -D FORWARD -j NFQUEUE --queue-num 0 2>/dev/null || true
 
+# Remove SOAR nftables blocks
+if command -v nft &> /dev/null; then
+    nft delete table inet vajra 2>/dev/null && echo -e "${GREEN}  [OK] nftables table inet vajra removed${NC}" || true
+fi
+
 echo -e "${GREEN}  [OK] Network restored to normal${NC}"
 
 # Step 2: Stop Suricata
