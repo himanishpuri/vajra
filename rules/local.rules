@@ -91,8 +91,8 @@ drop http any any -> $HOME_NET any (msg:"VAJRA DROP DDoS - HTTP Flood"; flow:to_
 
 # CREDENTIAL ABUSE - DROP
 
-drop tcp any any -> $HOME_NET 22 (msg:"VAJRA DROP SSH Brute Force"; flow:to_server; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000060; rev:1;)
+drop tcp any any -> $HOME_NET 22 (msg:"VAJRA DROP SSH Brute Force"; flow:to_server; flags:S,12; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000060; rev:2;)
 
-drop tcp any any -> $HOME_NET 21 (msg:"VAJRA DROP FTP Brute Force"; flow:to_server; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000061; rev:1;)
+drop tcp any any -> $HOME_NET 21 (msg:"VAJRA DROP FTP Brute Force"; flow:to_server; flags:S,12; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000061; rev:2;)
 
-drop tcp any any -> $HOME_NET 3389 (msg:"VAJRA DROP RDP Brute Force"; flow:to_server; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000062; rev:1;)
+drop tcp any any -> $HOME_NET 3389 (msg:"VAJRA DROP RDP Brute Force"; flow:to_server; flags:S,12; threshold:type both, track by_src, count 3, seconds 30; classtype:attempted-admin; sid:2000062; rev:2;)
