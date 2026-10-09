@@ -122,7 +122,9 @@ if [ "$PKG_MANAGER" = "apt-get" ]; then
     # Add Suricata PPA for latest version
     add-apt-repository -y ppa:oisf/suricata-stable 2>/dev/null || true
     apt-get update
-    apt-get install -y suricata suricata-update
+    apt-get install -y suricata
+    # The PPA build ships suricata-update itself; the separate package conflicts with it
+    command -v suricata-update &> /dev/null || apt-get install -y suricata-update
 elif [ "$PKG_MANAGER" = "dnf" ]; then
     dnf install -y suricata
 elif [ "$PKG_MANAGER" = "yum" ]; then
