@@ -134,13 +134,18 @@ table inet vajra {
 
     def _setup_nftables(self):
         """Create the nftables rules and restore saved blocks"""
+        error = None
         try:
             result = subprocess.run(["nft", "-f", "-"], input=self.NFT_RULESET, capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                error = result.stderr.strip()
         except (OSError, subprocess.SubprocessError) as e:
-            logger.error(f"Could not set up nftables: {e}")
-            return
-        if result.returncode != 0:
-            logger.error(f"Could not set up nftables: {result.stderr.strip()}")
+            error = str(e)
+        if error is not None:
+            # Without the table no block can be applied, so saved blocks must not count as active
+            logger.error(f"Could not set up nftables, blocks will not be enforced: {error}")
+            self.backend = "none"
+            self.blocked_ips = set()
             return
 
         # Recreating the table empties the sets, so re-apply saved blocks
