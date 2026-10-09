@@ -58,4 +58,5 @@ Thumbs.db
 # Runtime artifacts
 fl_models/
 config/suricata/suricata.runtime.yaml
+config/suricata/protected.rules
 **/output/
