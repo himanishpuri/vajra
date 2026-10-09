@@ -5,13 +5,15 @@ Vajra Status - Check pipeline status and show blocked IPs (ML Enhanced)
 
 import os
 import json
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
 
 def check_process(name: str) -> bool:
     """Check if a process is running"""
-    return os.system(f"pgrep -f '{name}' > /dev/null 2>&1") == 0
+    # Without a shell, pgrep -f cannot match the shell running it
+    return subprocess.run(["pgrep", "-f", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
 
 
 def main():
