@@ -118,6 +118,11 @@ echo -e "${GREEN}  [OK] System dependencies installed${NC}"
 echo ""
 echo -e "${YELLOW}[3/7] Installing Suricata IDS/IPS...${NC}"
 
+SURICATA_SERVICE_WAS_ENABLED="false"
+if command -v systemctl &> /dev/null && systemctl is-enabled suricata &> /dev/null; then
+    SURICATA_SERVICE_WAS_ENABLED="true"
+fi
+
 if [ "$PKG_MANAGER" = "apt-get" ]; then
     # Add Suricata PPA for latest version
     add-apt-repository -y ppa:oisf/suricata-stable 2>/dev/null || true
@@ -130,6 +135,13 @@ elif [ "$PKG_MANAGER" = "yum" ]; then
     yum install -y suricata
 elif [ "$PKG_MANAGER" = "pacman" ]; then
     pacman -S --noconfirm suricata
+fi
+
+# start.sh runs its own Suricata, so do not leave the packaged service running next to it
+if [ "$SURICATA_SERVICE_WAS_ENABLED" = "false" ] && command -v systemctl &> /dev/null; then
+    systemctl disable --now suricata 2>/dev/null && echo -e "${GREEN}  [OK] Disabled the packaged suricata service${NC}" || true
+    # The packaged service often fails at once on its default interface, and disable does not clear that
+    systemctl reset-failed suricata 2>/dev/null || true
 fi
 
 # Verify Suricata
