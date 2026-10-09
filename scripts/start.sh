@@ -312,6 +312,14 @@ iptables -D FORWARD -j NFQUEUE --queue-num 0 2>/dev/null || true
 iptables -D INPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
 iptables -D OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
 iptables -D FORWARD -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+if command -v ip6tables &> /dev/null; then
+    ip6tables -D INPUT -j NFQUEUE --queue-num 0 2>/dev/null || true
+    ip6tables -D OUTPUT -j NFQUEUE --queue-num 0 2>/dev/null || true
+    ip6tables -D FORWARD -j NFQUEUE --queue-num 0 2>/dev/null || true
+    ip6tables -D INPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+    ip6tables -D OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+    ip6tables -D FORWARD -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+fi
 
 # Enable IP forwarding
 echo 1 > /proc/sys/net/ipv4/ip_forward
@@ -320,12 +328,19 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 iptables -I INPUT -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -I OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass
 iptables -I FORWARD -j NFQUEUE --queue-num 0 --queue-bypass
+if command -v ip6tables &> /dev/null && ip6tables -S &> /dev/null; then
+    ip6tables -I INPUT -j NFQUEUE --queue-num 0 --queue-bypass
+    ip6tables -I OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass
+    ip6tables -I FORWARD -j NFQUEUE --queue-num 0 --queue-bypass
+fi
 
 echo -e "${GREEN}  [OK] NFQUEUE rules configured${NC}"
 
 # Step 1.5: Generate suricata.yaml with detected interface
 echo ""
 echo -e "${YELLOW}[1.5/8] Generating suricata.yaml with detected interface...${NC}"
+
+HOST_V6=$(ip -6 -o addr show scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]"/128"}' | paste -sd, -)
 
 cat > "$ROOT_DIR/config/suricata/suricata.runtime.yaml" << EOF
 %YAML 1.1
@@ -337,7 +352,7 @@ cat > "$ROOT_DIR/config/suricata/suricata.runtime.yaml" << EOF
 
 vars:
   address-groups:
-    HOME_NET: "[$NETWORK_CIDR,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12]"
+    HOME_NET: "[$NETWORK_CIDR,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,fc00::/7,fe80::/10${HOST_V6:+,$HOST_V6}]"
     EXTERNAL_NET: "any"
     HTTP_SERVERS: "\$HOME_NET"
     SQL_SERVERS: "\$HOME_NET"
@@ -547,6 +562,9 @@ else
     iptables -D INPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
     iptables -D OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
     iptables -D FORWARD -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+    ip6tables -D INPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+    ip6tables -D OUTPUT -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
+    ip6tables -D FORWARD -j NFQUEUE --queue-num 0 --queue-bypass 2>/dev/null || true
     exit 1
 fi
 
@@ -558,7 +576,7 @@ if [ "$ENABLE_HTTP_SERVER" = "true" ]; then
     # Serve a dedicated demo directory, never the repository itself
     mkdir -p "$LOGS_DIR/www"
     echo "Vajra demo target" > "$LOGS_DIR/www/index.html"
-    nohup $PYTHON_CMD -m http.server $HTTP_PORT --directory "$LOGS_DIR/www" > logs/http_server.out 2>&1 &
+    nohup $PYTHON_CMD -m http.server $HTTP_PORT --bind :: --directory "$LOGS_DIR/www" > logs/http_server.out 2>&1 &
     HTTP_PID=$!
     echo $HTTP_PID > logs/http_server.pid
     sleep 1
