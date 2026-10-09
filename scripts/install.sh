@@ -11,6 +11,8 @@
 
 set -e
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -185,7 +187,6 @@ fi
 echo ""
 echo -e "${YELLOW}[5/7] Setting up Python virtual environment...${NC}"
 
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if [ ! -d "venv" ]; then
@@ -203,6 +204,11 @@ echo -e "${BLUE}  Installing Python packages...${NC}"
 pip install -r requirements.txt
 
 echo -e "${GREEN}  [OK] Python packages installed${NC}"
+
+# make setup runs without sudo, so return the venv to the invoking user
+if [ -n "$SUDO_USER" ]; then
+    chown -R "$SUDO_USER": venv
+fi
 
 # Step 6: Setup Directories and Files
 echo ""
