@@ -274,7 +274,15 @@ echo ""
 
 # Kill Existing Processes
 echo -e "${YELLOW}[0/8] Cleaning up existing processes...${NC}"
-pkill -9 suricata 2>/dev/null || true
+# Suricata renames itself Suricata-Main, so stop it by the PID file it wrote
+if [ -f "$LOGS_DIR/suricata.pid" ]; then
+    OLD_PID=$(cat "$LOGS_DIR/suricata.pid")
+    # The PID file can outlive a crash or reboot, so only kill the PID while it is still Suricata
+    if grep -qa suricata "/proc/$OLD_PID/cmdline" 2>/dev/null; then
+        kill -9 "$OLD_PID" 2>/dev/null || true
+    fi
+    rm -f "$LOGS_DIR/suricata.pid"
+fi
 pkill -f "vajra.soar.engine" 2>/dev/null || true
 pkill -f "vajra.pipeline.unified_logger" 2>/dev/null || true
 pkill -f "vajra.pipeline.kafka_bridge" 2>/dev/null || true
@@ -532,8 +540,8 @@ suricata -c "$ROOT_DIR/config/suricata/suricata.runtime.yaml" -q 0 -l "$LOGS_DIR
 
 sleep 4
 
-if pgrep -f "suricata" > /dev/null; then
-    SURI_PID=$(cat "$LOGS_DIR/suricata.pid" 2>/dev/null || pgrep -f "suricata" | head -1)
+if [ -f "$LOGS_DIR/suricata.pid" ] && kill -0 "$(cat "$LOGS_DIR/suricata.pid")" 2>/dev/null; then
+    SURI_PID=$(cat "$LOGS_DIR/suricata.pid")
     echo -e "${GREEN}  [OK] Suricata IPS running (PID: $SURI_PID)${NC}"
     echo -e "${BLUE}    Mode: NFQUEUE on queue 0${NC}"
     
