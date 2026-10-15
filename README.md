@@ -188,17 +188,14 @@ docs/                Architecture and API reference
 
 ## Limitations
 
-- Blocks never expire. With nftables they last until `scripts/stop.sh`
-  removes the `inet vajra` table, and the SOAR engine re-applies the ones in
-  `logs/blocked_ips.txt` when it starts again. With iptables, stopping the
-  pipeline does not remove them. Remove one by hand with `iptables -D`.
+- Blocks never expire. They last until `scripts/stop.sh` removes the
+  `inet vajra` table or, with iptables, the `VAJRA-BLOCK` chain, and the
+  SOAR engine re-applies the ones in `logs/blocked_ips.txt` when it starts
+  again.
 - Blocks only apply to traffic to and from the host itself. The nftables
-  chains hook input and output, and the iptables rules go in INPUT and
-  OUTPUT, so traffic forwarded through the host is not dropped when Vajra
+  chains hook input and output, and the iptables `VAJRA-BLOCK` chain is only
+  jumped to from INPUT and OUTPUT, so traffic forwarded through the host is not dropped when Vajra
   runs inline.
-- With iptables, the SOAR engine appends its DROP rules after the NFQUEUE
-  rules. Whether they take effect depends on how the chain is evaluated, and
-  this has not been verified.
 - One matching alert is enough to block a source. There is no threshold,
   cooldown or rate limit yet.
 - The bundled models have no documented training data or evaluation, and some
@@ -212,7 +209,6 @@ docs/                Architecture and API reference
 Planned or being considered, none of it built yet:
 
 - Expiring blocks and an `unblock` command
-- Correct iptables setup for blocks, created and removed by the scripts
 - Thresholds, cooldowns and rate limits on blocking
 - An offline demo with Docker Compose and pcap replay that needs no root
 - Unit tests and CI

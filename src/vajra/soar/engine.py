@@ -107,6 +107,7 @@ table inet vajra {
     }
 }
 """
+    IPTABLES_CHAIN = "VAJRA-BLOCK"
     
     def __init__(self, dry_run: bool = False, allowlist: Optional[List[str]] = None):
         self.dry_run = dry_run
@@ -117,6 +118,8 @@ table inet vajra {
         self.unrestored_ips = set()
         if self.enforcing and self.backend == "nftables":
             self._setup_nftables()
+        elif self.enforcing and self.backend == "iptables":
+            self._setup_iptables()
         logger.info(f"Firewall backend: {self.backend}" + (" (dry run)" if dry_run else ""))
         logger.info(f"Allowlist: {', '.join(str(n) for n in self.allowlist)}")
 
@@ -128,6 +131,10 @@ table inet vajra {
     def _nft_set(self, ip: str) -> str:
         """Choose the nftables set for an IP address"""
         return "blocked_ips6" if ipaddress.ip_address(ip).version == 6 else "blocked_ips"
+
+    def _iptables(self, ip: str) -> str:
+        """Choose iptables or ip6tables for an IP address"""
+        return "ip6tables" if ipaddress.ip_address(ip).version == 6 else "iptables"
 
     def _setup_nftables(self):
         """Create the nftables rules and restore saved blocks"""
@@ -146,6 +153,39 @@ table inet vajra {
             return
 
         # Recreating the table empties the sets, so re-apply saved blocks
+        self._restore_saved_blocks()
+
+    def _setup_iptables(self):
+        """Create the VAJRA-BLOCK chain ahead of the NFQUEUE rules and restore saved blocks"""
+        chain = self.IPTABLES_CHAIN
+        for tool in ("iptables", "ip6tables"):
+            error = None
+            try:
+                # -N fails if the chain exists and -D if there is no jump yet; both are fine
+                for args in (["-N", chain], ["-D", "INPUT", "-j", chain], ["-D", "OUTPUT", "-j", chain]):
+                    subprocess.run([tool, *args], capture_output=True, timeout=5)
+                # start.sh inserts NFQUEUE at the top, so the jump goes back above it on every start
+                for args in (["-F", chain], ["-I", "INPUT", "1", "-j", chain], ["-I", "OUTPUT", "1", "-j", chain]):
+                    result = subprocess.run([tool, *args], capture_output=True, text=True, timeout=5)
+                    if result.returncode != 0:
+                        error = result.stderr.strip()
+                        break
+            except (OSError, subprocess.SubprocessError) as e:
+                error = str(e)
+            if error is None:
+                continue
+            if tool == "ip6tables":
+                logger.warning(f"Could not set up the ip6tables {chain} chain, IPv6 blocks will fail: {error}")
+                continue
+            logger.error(f"Could not set up the iptables {chain} chain, blocks will not be enforced: {error}")
+            self.backend = "none"
+            self.blocked_ips = set()
+            return
+        # Flushing the chain removed the old blocks, so re-apply saved ones
+        self._restore_saved_blocks()
+
+    def _restore_saved_blocks(self):
+        """Re-apply saved blocks after the firewall rules were recreated"""
         saved_ips = self.blocked_ips
         self.blocked_ips = set()
         for ip in saved_ips:
@@ -155,7 +195,7 @@ table inet vajra {
         if self.unrestored_ips:
             logger.warning(f"Could not restore {len(self.unrestored_ips)} saved blocks, keeping them in {self.blocked_ips_file}")
         self._save_blocked_ips()
-        logger.info(f"Restored {len(self.blocked_ips)} nftables blocks")
+        logger.info(f"Restored {len(self.blocked_ips)} {self.backend} blocks")
 
     def is_allowlisted(self, ip: str) -> bool:
         """Check whether an IP falls inside the allowlist"""
@@ -212,9 +252,10 @@ table inet vajra {
                 success = result.returncode == 0
                 
             elif self.backend == "iptables":
-                # iptables - add to INPUT and OUTPUT
-                cmd1 = ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP", "-m", "comment", "--comment", f"Vajra: {reason[:50]}"]
-                cmd2 = ["iptables", "-A", "OUTPUT", "-d", ip, "-j", "DROP"]
+                # VAJRA-BLOCK is jumped to from INPUT and OUTPUT ahead of the NFQUEUE rules
+                tool = self._iptables(ip)
+                cmd1 = [tool, "-A", self.IPTABLES_CHAIN, "-s", ip, "-j", "DROP"]
+                cmd2 = [tool, "-A", self.IPTABLES_CHAIN, "-d", ip, "-j", "DROP"]
                 
                 r1 = subprocess.run(cmd1, capture_output=True, timeout=5)
                 r2 = subprocess.run(cmd2, capture_output=True, timeout=5)
@@ -243,8 +284,9 @@ table inet vajra {
                 cmd = ["nft", "delete", "element", "inet", "vajra", self._nft_set(ip), f"{{ {ip} }}"]
                 subprocess.run(cmd, capture_output=True, timeout=5)
             elif self.backend == "iptables":
-                subprocess.run(["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"], capture_output=True, timeout=5)
-                subprocess.run(["iptables", "-D", "OUTPUT", "-d", ip, "-j", "DROP"], capture_output=True, timeout=5)
+                tool = self._iptables(ip)
+                subprocess.run([tool, "-D", self.IPTABLES_CHAIN, "-s", ip, "-j", "DROP"], capture_output=True, timeout=5)
+                subprocess.run([tool, "-D", self.IPTABLES_CHAIN, "-d", ip, "-j", "DROP"], capture_output=True, timeout=5)
             
             self.blocked_ips.discard(ip)
             self._save_blocked_ips()

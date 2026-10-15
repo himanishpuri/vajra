@@ -79,6 +79,14 @@ if command -v ip6tables &> /dev/null; then
     ip6tables -D FORWARD -j NFQUEUE --queue-num 0 2>/dev/null || true
 fi
 
+# Remove SOAR iptables blocks
+for tool in iptables ip6tables; do
+    command -v $tool &> /dev/null || continue
+    while $tool -D INPUT -j VAJRA-BLOCK 2>/dev/null; do :; done
+    while $tool -D OUTPUT -j VAJRA-BLOCK 2>/dev/null; do :; done
+    $tool -F VAJRA-BLOCK 2>/dev/null && $tool -X VAJRA-BLOCK 2>/dev/null && echo -e "${GREEN}  [OK] $tool chain VAJRA-BLOCK removed${NC}" || true
+done
+
 # Remove SOAR nftables blocks
 if command -v nft &> /dev/null; then
     nft delete table inet vajra 2>/dev/null && echo -e "${GREEN}  [OK] nftables table inet vajra removed${NC}" || true
